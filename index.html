@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WebPush Demo</title>
+  <style>
+    body { font: 14px/1.6 "Microsoft YaHei", sans-serif; max-width: 720px; margin: 30px auto; padding: 0 16px; }
+    .regid { font: 16px Consolas, monospace; background: #f0f2f5; padding: 2px 8px; border-radius: 4px; }
+    pre { background: #f0f2f5; padding: 10px; border-radius: 6px; white-space: pre-wrap; word-break: break-all; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h2>WebPush Demo</h2>
+  <p>RegistrationID：<span id="regid" class="regid">初始化中…</span></p>
+  <p>通知权限：<b id="perm"></b></p>
+
+  <h3>收到的消息</h3>
+  <pre id="msgs">（暂无）</pre>
+
+  <h3>日志</h3>
+  <pre id="log"></pre>
+
+  <!-- 1. 引入 Web SDK（sw 文件不用引入，SDK 会自动注册） -->
+  <script src="./webSdk.produce.min.3.4.0.js"></script>
+  <script>
+    // 2. 你的 AppKey（控制台「应用信息」里复制）
+    var APPKEY = "867a5b19d5b3f56f611c21e8";
+
+    function log(text, data) {
+      document.getElementById("log").textContent +=
+        new Date().toLocaleTimeString() + "  " + text + (data ? "  " + JSON.stringify(data) : "") + "\n";
+    }
+
+    // 3. user_str：用浏览器信息生成一个固定的编号，同一个浏览器每次打开都一样
+    function getUserStr() {
+      var s = navigator.userAgent + navigator.language + screen.width + "x" + screen.height +
+              Intl.DateTimeFormat().resolvedOptions().timeZone;
+      var h = 0;
+      for (var i = 0; i < s.length; i++) { h = (h << 5) - h + s.charCodeAt(i); h |= 0; }
+      return "web_" + Math.abs(h);
+    }
+
+    // 4. 先注册“收到消息”的监听（页面开着时收到的推送会到这里）
+    MTpushInterface.onMsgReceive(function (msg) {
+      log("收到消息", msg);
+      document.getElementById("msgs").textContent = JSON.stringify(msg, null, 2);
+    });
+
+    // 5. 页面一打开就自动初始化
+    var userStr = getUserStr();
+    log("开始初始化，user_str = " + userStr);
+
+    MTpushInterface.init({
+      appkey: APPKEY,
+      user_str: userStr,
+      swUrl: "./sw.produce.min.3.4.0.js",
+      canGetInfo: function () {
+        // 到这里就拿到 RegistrationID 了
+        var regid = MTpushInterface.getRegistrationID();
+        document.getElementById("regid").textContent = regid;
+        log("拿到 RegistrationID：" + regid);
+      },
+      success: function () { log("EngageLab 通道连接成功"); },
+      fail: function (err) {
+        document.getElementById("regid").textContent = "初始化失败（看下方日志）";
+        log("初始化失败", err);
+      },
+      webPushcallback: function (code, tip) {
+        // 浏览器会弹窗询问是否允许通知；1 = 订阅成功
+        document.getElementById("perm").textContent = Notification.permission;
+        log("浏览器推送订阅结果：" + code + " " + tip);
+      }
+    });
+
+    document.getElementById("perm").textContent = window.Notification ? Notification.permission : "不支持";
+  </script>
+</body>
+</html>
